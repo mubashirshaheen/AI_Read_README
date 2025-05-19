@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>README AI Assistant</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+    textarea, select { width: 100%; padding: 10px; margin-top: 10px; font-size: 16px; }
+    button { padding: 10px 20px; margin-top: 10px; font-size: 16px; }
+    #response { margin-top: 20px; white-space: pre-wrap; border: 1px solid #ccc; padding: 15px; background: #f9f9f9; }
+  </style>
+</head>
+<body>
+
+  <h2>README AI Assistant</h2>
+
+  <label for="readmeSelect">Choose a README file:</label>
+  <select id="readmeSelect"></select>
+
+  <textarea id="question" placeholder="Type your question..."></textarea>
+  <button onclick="askQuestion()">Ask</button>
+
+  <div id="response"></div>
+
+  <script>
+    const readmeSelect = document.getElementById('readmeSelect');
+    const responseDiv = document.getElementById('response');
+
+    // Load available README files
+    fetch("http://localhost:8000/readme-files")
+      .then(res => res.json())
+      .then(data => {
+        data.files.forEach(file => {
+          const option = document.createElement("option");
+          option.value = file;
+          option.text = file;
+          readmeSelect.appendChild(option);
+        });
+      });
+
+    function askQuestion() {
+  const question = document.getElementById('question').value;
+  const readmeFile = document.getElementById('readmeSelect').value;
+  const responseDiv = document.getElementById('response');
+  responseDiv.innerText = ""; // Clear previous result
+
+  const ws = new WebSocket("ws://localhost:8000/ws/ask");
+
+  let fullResponse = "";
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      question: question,
+      readme_file: readmeFile
+    }));
+  };
+
+  ws.onmessage = (event) => {
+<!--    if (event.data === "[DONE]") {-->
+<!--      ws.close();-->
+<!--      return;-->
+<!--    }-->
+
+    // Append streamed token
+    fullResponse += event.data;
+    responseDiv.innerHTML = marked.parse(fullResponse);
+  };
+
+  ws.onerror = (err) => {
+    responseDiv.innerText = "WebSocket error: " + err.message;
+    console.error(err);
+  };
+}
+
+  </script>
+
+</body>
+</html>
