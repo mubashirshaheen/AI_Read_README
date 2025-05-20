@@ -1,4 +1,6 @@
 import os
+
+import markdown
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_ollama import OllamaLLM
@@ -18,9 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # List available README files
 def get_readme_files():
     return [f for f in os.listdir(README_DIR) if f.endswith(".md")]
+
 
 # Load selected README file
 def load_readme(file_name):
@@ -30,20 +34,21 @@ def load_readme(file_name):
     with open(path, 'r') as f:
         return f.read()
 
+
 # Custom callback handler to stream tokens
 class WebSocketCallbackHandler(BaseCallbackHandler):
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
 
-    def on_llm_new_token(self, token: str, **kwargs):
-        # Send each token as it's generated
-        import asyncio
-        asyncio.create_task(self.websocket.send_text(token))
+    async def on_llm_new_token(self, token: str, **kwargs):
+        await self.websocket.send_text(token)
+
 
 # Endpoint to list available README files
 @app.get("/readme-files")
 def list_readmes():
     return {"files": get_readme_files()}
+
 
 # WebSocket for streaming responses
 @app.websocket("/ws/ask")
@@ -71,9 +76,8 @@ async def ask_ws(websocket: WebSocket):
             # Stream response
             handler = WebSocketCallbackHandler(websocket)
             llm = OllamaLLM(model="llama3", streaming=True, callbacks=[handler])
-            llm.invoke(prompt)  # Triggers streaming
-            #print("Response: " + _)
-            await websocket.send_text("[DONE]")  # signal end of stream
+            await llm.ainvoke(prompt)
+            await websocket.send_text("[DONE]")
 
     except WebSocketDisconnect:
         print("WebSocket disconnected.")

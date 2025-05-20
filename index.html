@@ -8,6 +8,8 @@
     button { padding: 10px 20px; margin-top: 10px; font-size: 16px; }
     #response { margin-top: 20px; white-space: pre-wrap; border: 1px solid #ccc; padding: 15px; background: #f9f9f9; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 </head>
 <body>
 
@@ -54,16 +56,21 @@
     }));
   };
 
-  ws.onmessage = (event) => {
-<!--    if (event.data === "[DONE]") {-->
-<!--      ws.close();-->
-<!--      return;-->
-<!--    }-->
-
-    // Append streamed token
-    fullResponse += event.data;
+let renderTimeout;
+ws.onmessage = (event) => {
+  if (event.data === "[DONE]") {
     responseDiv.innerHTML = marked.parse(fullResponse);
-  };
+    ws.close();
+    return;
+  }
+
+  fullResponse += event.data;
+
+  clearTimeout(renderTimeout);
+  renderTimeout = setTimeout(() => {
+    responseDiv.innerHTML = marked.parse(fullResponse);
+  }, 100);  // update every 100ms
+};
 
   ws.onerror = (err) => {
     responseDiv.innerText = "WebSocket error: " + err.message;
